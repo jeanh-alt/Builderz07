@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<title>Radar échéances DSP réseaux de chaleur — Prototype</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.2/dist/ag-grid-community.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.2/styles/ag-grid.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.2/styles/ag-theme-quartz.css" />
+<style>
+  :root {
+    --engie-blue: #00338D;
+    --engie-teal: #00A9CE;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    margin: 0;
+    background: #f4f6f8;
+    color: #1a1a1a;
+  }
+  header {
+    background: linear-gradient(90deg, var(--engie-blue), var(--engie-teal));
+    color: white;
+    padding: 18px 28px;
+  }
+  header h1 { margin: 0; font-size: 1.4rem; }
+  header p { margin: 4px 0 0; font-size: 0.85rem; opacity: 0.9; }
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    padding: 14px 28px;
+    background: white;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  .toolbar input[type="text"] {
+    flex: 1 1 320px;
+    padding: 9px 14px;
+    border: 1px solid #c9ced6;
+    border-radius: 6px;
+    font-size: 0.95rem;
+  }
+  .toolbar select {
+    padding: 8px 10px;
+    border: 1px solid #c9ced6;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background: white;
+  }
+  .toolbar button {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 6px;
+    background: var(--engie-blue);
+    color: white;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  .toolbar button:hover { background: #002569; }
+  .stats {
+    display: flex;
+    gap: 18px;
+    padding: 10px 28px;
+    background: white;
+    font-size: 0.85rem;
+    color: #444;
+    border-bottom: 1px solid #e0e0e0;
+    flex-wrap: wrap;
+  }
+  .stats b { color: var(--engie-blue); }
+  #grid-wrapper {
+    margin: 18px 28px 28px;
+    height: calc(100vh - 220px);
+  }
+  .badge {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .badge-engie { background: #d6e9ff; color: #00338D; }
+  .badge-concurrent { background: #ffe2d6; color: #b3401a; }
+  .badge-inconnu { background: #eee; color: #777; }
+  .badge-confirmee { background: #d4f5dd; color: #1b7a3d; }
+  .badge-confirmee-ted { background: #d6e8ff; color: #0b4a8f; }
+  .badge-estimee { background: #fff3cd; color: #8a6400; }
+  .badge-inconnue-conf { background: #eee; color: #777; }
+  footer {
+    text-align: center;
+    font-size: 0.75rem;
+    color: #888;
+    padding: 10px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Radar échéances DSP réseaux de chaleur — Prototype data</h1>
+  <p>Hackathon Mistral × Wivoo (ENGIE) — données FCU × BOAMP × DECP préparées avant le hackathon</p>
+</header>
+
+<div class="toolbar">
+  <input id="quickFilter" type="text" placeholder="🔎 Rechercher (réseau, commune, titulaire, gestionnaire...)" />
+  <button id="resetBtn">Réinitialiser les filtres</button>
+</div>
+
+<div class="stats" id="statsBar"></div>
+
+<div id="grid-wrapper" class="ag-theme-quartz"></div>
+
+<footer>Données : France Chaleur Urbaine (data.gouv.fr), BOAMP, DECP — préparation data_prep/ · généré le <span id="genDate"></span></footer>
+
+<script>
+const ROWDATA = __ROWDATA_JSON__;
+
+document.getElementById('genDate').textContent = new Date().toLocaleDateString('fr-FR');
+
+function confianceBadge(params) {
+  const v = params.value;
+  if (v === 'confirmee_boamp') return `<span class="badge badge-confirmee">Confirmée (BOAMP)</span>`;
+  if (v === 'confirmee_ted') return `<span class="badge badge-confirmee-ted">Confirmée (TED)</span>`;
+  if (v === 'estimee') return `<span class="badge badge-estimee">Estimée</span>`;
+  return `<span class="badge badge-inconnue-conf">Inconnue</span>`;
+}
+
+function titulaireBadge(params) {
+  const v = params.value;
+  if (v === 'ENGIE') return `<span class="badge badge-engie">ENGIE</span>`;
+  if (v === 'Concurrent') return `<span class="badge badge-concurrent">Concurrent</span>`;
+  return `<span class="badge badge-inconnu">Inconnu</span>`;
+}
+
+function scoreBar(params) {
+  const v = params.value;
+  if (v === null || v === undefined || isNaN(v)) return '';
+  const pct = Math.round(v * 100);
+  let color = '#c0392b';
+  if (pct >= 66) color = '#1b7a3d';
+  else if (pct >= 40) color = '#b38600';
+  return `<div style="background:#eee;border-radius:4px;overflow:hidden;height:16px;width:100%;">
+    <div style="background:${color};width:${pct}%;height:100%;"></div>
+  </div><span style="font-size:0.72rem;">${pct}%</span>`;
+}
+
+const numberFmt = (params) => {
+  if (params.value === null || params.value === undefined || isNaN(params.value)) return '';
+  return Number(params.value).toLocaleString('fr-FR');
+};
+
+function tedAlerteBadge(params) {
+  if (params.value === true) return `<span class="badge badge-inconnue-conf" title="Un avis TED a été publié après l'échéance calculée : l'échéance est probablement sous-estimée.">⚠ à vérifier</span>`;
+  return '';
+}
+
+function tedLienRenderer(params) {
+  if (!params.value) return '';
+  return `<a href="${params.value}" target="_blank" rel="noopener">Voir l'avis</a>`;
+}
+
+const columnDefs = [
+  { field: 'nom_reseau', headerName: 'Réseau', pinned: 'left', minWidth: 220, filter: 'agTextColumnFilter' },
+  { field: 'communes', headerName: 'Commune(s)', minWidth: 200, filter: 'agTextColumnFilter' },
+  { field: 'departement', headerName: 'Département', minWidth: 140, filter: 'agSetColumnFilter' },
+  { field: 'region', headerName: 'Région', minWidth: 160, filter: 'agSetColumnFilter' },
+  { field: 'MO', headerName: "Maître d'ouvrage", minWidth: 180, filter: 'agTextColumnFilter' },
+  { field: 'Gestionnaire', headerName: 'Gestionnaire (FCU)', minWidth: 200, filter: 'agTextColumnFilter' },
+  { field: 'annee_creation', headerName: 'Année création', minWidth: 130, filter: 'agNumberColumnFilter', type: 'numericColumn' },
+  { field: 'longueur_reseau', headerName: 'Longueur (km)', minWidth: 130, filter: 'agNumberColumnFilter', type: 'numericColumn', valueFormatter: numberFmt },
+  { field: 'nb_pdl', headerName: 'Nb points livraison', minWidth: 150, filter: 'agNumberColumnFilter', type: 'numericColumn', valueFormatter: numberFmt },
+  { field: 'Taux EnR&R', headerName: 'Taux EnR&R (%)', minWidth: 140, filter: 'agNumberColumnFilter', type: 'numericColumn' },
+  { field: 'echeance', headerName: 'Échéance', minWidth: 150, filter: 'agDateColumnFilter',
+    comparator: (a,b) => new Date(a) - new Date(b) },
+  { field: 'confiance', headerName: 'Confiance échéance', minWidth: 160, filter: 'agSetColumnFilter', cellRenderer: confianceBadge },
+  { field: 'titulaire_connu', headerName: 'Titulaire (BOAMP)', minWidth: 200, filter: 'agTextColumnFilter' },
+  { field: 'titulaire_est_engie', headerName: 'ENGIE / Concurrent', minWidth: 150, filter: 'agSetColumnFilter', cellRenderer: titulaireBadge },
+  { field: 'boamp_montant', headerName: 'Montant contrat (€)', minWidth: 160, filter: 'agNumberColumnFilter', type: 'numericColumn', valueFormatter: numberFmt },
+  { field: 'score_opportunite', headerName: "Score d'opportunité", minWidth: 160, filter: 'agNumberColumnFilter', type: 'numericColumn', cellRenderer: scoreBar, sort: 'desc' },
+  { field: 'score_echeance', headerName: 'Sous-score échéance', minWidth: 150, filter: 'agNumberColumnFilter', type: 'numericColumn', hide: true },
+  { field: 'score_titulaire', headerName: 'Sous-score titulaire', minWidth: 150, filter: 'agNumberColumnFilter', type: 'numericColumn', hide: true },
+  { field: 'score_concurrence', headerName: 'Sous-score concurrence', minWidth: 160, filter: 'agNumberColumnFilter', type: 'numericColumn', hide: true },
+  { field: 'score_taille', headerName: 'Sous-score taille', minWidth: 140, filter: 'agNumberColumnFilter', type: 'numericColumn', hide: true },
+  { field: 'ted_dernier_avis', headerName: 'Dernier avis TED', minWidth: 150, filter: 'agDateColumnFilter',
+    comparator: (a,b) => new Date(a) - new Date(b) },
+  { field: 'ted_nb_avis', headerName: 'Nb avis TED', minWidth: 110, filter: 'agNumberColumnFilter', type: 'numericColumn' },
+  { field: 'ted_echeance_depassee', headerName: 'Échéance à vérifier (TED)', minWidth: 170, filter: 'agSetColumnFilter', cellRenderer: tedAlerteBadge },
+  { field: 'ted_lien', headerName: 'Avis TED', minWidth: 110, filter: false, cellRenderer: tedLienRenderer },
+  { field: 'ted_publication_number_source', headerName: 'Avis TED source échéance', minWidth: 180, filter: 'agTextColumnFilter', hide: true },
+  { field: 'ted_date_reference_xml', headerName: 'Date conclusion contrat (TED)', minWidth: 180, filter: 'agDateColumnFilter',
+    comparator: (a,b) => new Date(a) - new Date(b) },
+  { field: 'ted_duree_mois_xml', headerName: 'Durée contrat TED (mois)', minWidth: 160, filter: 'agNumberColumnFilter', type: 'numericColumn' },
+  { field: 'ted_format_xml', headerName: 'Format avis TED', minWidth: 130, filter: 'agSetColumnFilter', hide: true },
+  { field: 'echeance_avant_ted', headerName: 'Échéance avant TED (ancien fallback)', minWidth: 190, filter: 'agDateColumnFilter', hide: true,
+    comparator: (a,b) => new Date(a) - new Date(b) },
+  { field: 'confiance_avant_ted', headerName: 'Confiance avant TED', minWidth: 150, filter: 'agSetColumnFilter', hide: true },
+];
+
+const gridOptions = {
+  columnDefs: columnDefs,
+  rowData: ROWDATA,
+  defaultColDef: {
+    sortable: true,
+    resizable: true,
+    filter: true,
+    floatingFilter: true,
+  },
+  pagination: true,
+  paginationPageSize: 50,
+  paginationPageSizeSelector: [25, 50, 100, 500],
+  animateRows: true,
+  rowSelection: 'multiple',
+  onGridReady: (params) => {
+    updateStats();
+  },
+  onFilterChanged: () => updateStats(),
+  onModelUpdated: () => updateStats(),
+};
+
+const gridDiv = document.getElementById('grid-wrapper');
+const gridApi = agGrid.createGrid(gridDiv, gridOptions);
+
+document.getElementById('quickFilter').addEventListener('input', (e) => {
+  gridApi.setGridOption('quickFilterText', e.target.value);
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  document.getElementById('quickFilter').value = '';
+  gridApi.setGridOption('quickFilterText', '');
+  gridApi.setFilterModel(null);
+});
+
+function updateStats() {
+  const total = ROWDATA.length;
+  let visible = 0;
+  gridApi.forEachNodeAfterFilter(() => visible++);
+  const confirmeesBoamp = ROWDATA.filter(r => r.confiance === 'confirmee_boamp').length;
+  const confirmeesTed = ROWDATA.filter(r => r.confiance === 'confirmee_ted').length;
+  document.getElementById('statsBar').innerHTML = `
+    <span>Total réseaux : <b>${total}</b></span>
+    <span>Affichés (filtre) : <b>${visible}</b></span>
+    <span>Échéances confirmées BOAMP : <b>${confirmeesBoamp}</b></span>
+    <span>Échéances confirmées TED : <b>${confirmeesTed}</b></span>
+  `;
+}
+</script>
+</body>
+</html>
