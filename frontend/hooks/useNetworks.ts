@@ -82,9 +82,11 @@ export function useNetworks() {
       if (!status) return data.networks;
       // Calcul du statut côté client pour l'instant
       return data.networks.filter(n => {
-        const calculatedStatus = n.titulaire_est_engie === 'ENGIE' ? 
-          (n.echeance ? new Date(n.echeance) <= new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000) ? 'ENGIE_RENOUVELLEMENT' : 'ENGIE') :
-          'NON_ENGIE';
+        const calculatedStatus = n.titulaire_est_engie === 'ENGIE'
+          ? (n.echeance && new Date(n.echeance) <= new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000)
+            ? 'ENGIE_RENOUVELLEMENT'
+            : 'ENGIE')
+          : 'NON_ENGIE';
         return calculatedStatus === status;
       });
     },
@@ -135,9 +137,11 @@ export function useNetworks() {
 
       if (filters.status) {
         result = result.filter(n => {
-          const calculatedStatus = n.titulaire_est_engie === 'ENGIE' ? 
-            (n.echeance ? new Date(n.echeance) <= new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000) ? 'ENGIE_RENOUVELLEMENT' : 'ENGIE') :
-            'NON_ENGIE';
+          const calculatedStatus = n.titulaire_est_engie === 'ENGIE'
+            ? (n.echeance && new Date(n.echeance) <= new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000)
+              ? 'ENGIE_RENOUVELLEMENT'
+              : 'ENGIE')
+            : 'NON_ENGIE';
           return calculatedStatus === filters.status;
         });
       }
