@@ -32,29 +32,9 @@ const PopupNoSSR = dynamic(
   { ssr: false }
 );
 
-// Import types and data
-import { networksWithCoords, getNetworksByRegion } from '../data/networks';
-import { frenchRegions, getRegionByName, FRANCE_CENTER } from '../data/regions';
-import { Network, calculateNetworkStatus, calculateGlobalScore } from '../types';
-
-// Status colors from Fluid Design System Engie
-const statusColors: Record<string, string> = {
-  ENGIE: '#00A86B',
-  ENGIE_RENOUVELLEMENT: '#4CAF50',
-  NON_ENGIE_HIGH: '#E53935',
-  NON_ENGIE_MEDIUM: '#FF9800',
-  NON_ENGIE_LOW: '#D32F2F',
-  UNKNOWN: '#9E9E9E',
-};
-
-const statusLabels: Record<string, string> = {
-  ENGIE: 'Géré par Engie',
-  ENGIE_RENOUVELLEMENT: 'Engie < 2 ans',
-  NON_ENGIE_HIGH: 'Score ≥ 0.8',
-  NON_ENGIE_MEDIUM: 'Score 0.6-0.8',
-  NON_ENGIE_LOW: 'Score < 0.6',
-  UNKNOWN: 'Inconnu',
-};
+// Import the custom hook for Supabase data
+import { useNetworks } from '../hooks/useNetworks';
+import { Network, calculateNetworkStatus, calculateGlobalScore, statusToColor, statusToLabel } from '../types';
 
 // Network Marker Component
 const NetworkMarker = ({ network, onClick }: { network: Network; onClick: () => void }) => {
@@ -67,7 +47,7 @@ const NetworkMarker = ({ network, onClick }: { network: Network; onClick: () => 
   if (!L || !network.lat || !network.lng) return null;
 
   const status = calculateNetworkStatus(network);
-  const color = statusColors[status];
+  const color = statusToColor[status];
 
   const icon = L.divIcon({
     className: 'network-marker',
@@ -134,8 +114,14 @@ const RegionHighlight = ({ region, isSelected, onClick }: {
   );
 };
 
+// Center of France fallback
+const FRANCE_CENTER: [number, number] = [46.603, 1.888];
+
 // Main page component
 export default function Home() {
+  // Use the custom hook to fetch data from Supabase
+  const { networks, regions, isLoading, error, filteredNetworks: filterFromHook } = useNetworks();
+  
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [hoveredNetwork, setHoveredNetwork] = useState<Network | null>(null);
   const [zoom, setZoom] = useState<number>(6);
@@ -150,9 +136,9 @@ export default function Home() {
   // Filter networks based on selected region
   const filteredNetworks = useMemo(() => {
     return selectedRegion
-      ? getNetworksByRegion(selectedRegion)
-      : networksWithCoords;
-  }, [selectedRegion]);
+      ? networks.filter(n => n.region === selectedRegion)
+      : networks;
+  }, [selectedRegion, networks]);
 
   // Handle region click
   const handleRegionClick = (regionName: string) => {
@@ -168,7 +154,7 @@ export default function Home() {
       'Hauts-de-France': [50.4801, 2.8238],
       'Normandie': [49.1935, 0.3807],
       'Occitanie': [43.6109, 3.8772],
-      'Provence-Alpes-Côte d\'Azur': [43.8358, 6.4758],
+      "Provence-Alpes-Côte d'Azur": [43.8358, 6.4758],
       'Bourgogne-Franche-Comté': [47.2802, 4.9994],
     };
     const newCenter = regionCenters[regionName] || FRANCE_CENTER;
@@ -199,6 +185,32 @@ export default function Home() {
         <div className="loading-content">
           <h1>Réseaux de Chaleur - Engie</h1>
           <p>Chargement de la carte...</p>
+        </div>
+      </main>
+    );
+  }
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <main className="loading-container">
+        <div className="loading-content">
+          <h1>Réseaux de Chaleur - Engie</h1>
+          <p>Chargement des données depuis Supabase...</p>
+          <div className="spinner"></div>
+        </div>
+      </main>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <main className="loading-container">
+        <div className="loading-content error">
+          <h1>⚠️ Erreur de chargement</h1>
+          <p>{error}</p>
+          <p className="hint">Vérifiez que votre fichier .env.local contient les bonnes variables Supabase.</p>
         </div>
       </main>
     );
@@ -249,6 +261,9 @@ export default function Home() {
               <span>Inconnu</span>
             </div>
           </div>
+          <div className="data-info">
+            <span className="data-count">{networks.length} réseaux chargés</span>
+          </div>
         </div>
       </header>
 
@@ -269,9 +284,9 @@ export default function Home() {
           />
 
           {/* Regions Layer */}
-          {frenchRegions.map((region) => (
+          {regions.map((region) => (
             <RegionHighlight
-              key={region.id}
+              key={region.id || region.nom}
               region={region}
               isSelected={selectedRegion === region.nom}
               onClick={() => handleRegionClick(region.nom)}
