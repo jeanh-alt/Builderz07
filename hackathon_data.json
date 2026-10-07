@@ -1,0 +1,105 @@
+{
+  "metadata": {
+    "title": "Radar échéances DSP réseaux de chaleur - France",
+    "description": "Données consolidées pour le hackathon sur les réseaux de chaleur en France avec échéances DSP",
+    "version": "1.0",
+    "date_creation": "2026-10-07",
+    "source_repo": "Builderz07",
+    "total_reseaux": 1060,
+    "echeances_confirmées": 198,
+    "echeances_estimees": 712,
+    "echeances_inconnues": 150,
+    "sources": [
+      {
+        "name": "FCU",
+        "description": "France Chaleur Urbaine - Référentiel de base des réseaux",
+        "count": 1060,
+        "date": "2026-09-14"
+      },
+      {
+        "name": "BOAMP",
+        "description": "Bulletin Officiel des Annonces des Marchés Publics",
+        "dsp_trouvees": 61,
+        "contrats_complets": 13
+      },
+      {
+        "name": "DECP",
+        "description": "Données Essentielles de la Commande Publique",
+        "marches_chaleur": 2020
+      },
+      {
+        "name": "TED",
+        "description": "Tenders Electronic Daily - Base européenne",
+        "avis_matchés": 324,
+        "echeances_confirmées": 181
+      }
+    ],
+    "methodologie": {
+      "jointure_FCU_BOAMP": "70% des acheteurs BOAMP matchés à un réseau FCU (vs 44-46% sans table EPCI)",
+      "fallback_echeance": "année_creation + durée médiane de 240 mois (20 ans) pour les réseaux sans contrat matché",
+      "score_opportunite": "35% échéance + 25% titulaire + 20% concurrence + 20% taille"
+    }
+  },
+  "data_files": {
+    "csv": {
+      "reseaux_scored": "data_prep/final/reseaux_scored.csv",
+      "description": "Tableau complet avec 100+ colonnes et tous les scores"
+    },
+    "json": {
+      "reseaux_for_dashboard": "data_prep/final/reseaux_for_dashboard.json",
+      "description": "Données optimisées pour l'affichage dashboard (~30 colonnes)",
+      "size": "835KB",
+      "records": 1060
+    },
+    "kml": {
+      "fcu_reseaux_chaleur": "data_prep/fcu_reseaux_chaleur.kmz",
+      "description": "Couche SIG complète avec géométries (24 Mo compressé)"
+    },
+    "html": {
+      "dashboard": "data_prep/dashboard_reseaux_chaleur.html",
+      "description": "Tableau interactif AG-Grid avec filtres et visualisation"
+    }
+  },
+  "cas_demo": [
+    {
+      "nom": "Clichy-sous-Bois/Le Chêne Pointu",
+      "type": "conquête",
+      "echeance": "2025-06-27",
+      "confiance": "confirmee_boamp",
+      "titulaire": "société Dhuysienne de Chaleur",
+      "montant": 13518364,
+      "description": "Cas de conquête avec échéance proche et contractualisation confirmée"
+    },
+    {
+      "nom": "Héricourt",
+      "type": "défense ENGIE",
+      "echeance": "2025-09-27",
+      "confiance": "confirmee_boamp",
+      "titulaire": "ENGIE COFELY",
+      "description": "Cas de défense pour ENGIE Solutions - vérification du recoupement FCU↔BOAMP"
+    },
+    {
+      "nom": "Nantes/IDEX",
+      "type": "watchlist long terme",
+      "echeance": "2036-12-16",
+      "confiance": "confirmee_boamp",
+      "titulaire": "IDEX Infra",
+      "montant": 107251894,
+      "description": "8 réseaux FCU rattachés, échéance à moyen terme, montant élevé"
+    }
+  ],
+  "questions_secours": [
+    {
+      "question": "Quels sont les 10 réseaux avec les échéances les plus proches confirmées par BOAMP ?",
+      "reponse": "Le Chêne Pointu (2025-06-27), Héricourt (2025-09-27), ... (liste complète disponible dans les données)"
+    },
+    {
+      "question": "Combien de réseaux ont une échéance confirmée par une source officielle ?",
+      "reponse": "198 réseaux (17 par BOAMP + 181 par TED XML)"
+    },
+    {
+      "question": "Quels sont les réseaux gérés par Dalkia avec échéance avant 2029 ?",
+      "reponse": "Liste disponible dans le dashboard, filtre 'titulaire_est_engie=Concurrent' + 'echeance<2029-01-01'"
+    }
+  ]
+}
