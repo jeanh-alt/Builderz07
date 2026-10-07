@@ -1,0 +1,12 @@
+{
+  "source": "Builderz07/data_prep",
+  "generation_date": "2026-10-07",
+  "summary": {
+    "total_reseaux": 1060,
+    "resaux_avec_echeance_confirmee": 198,
+    "resaux_avec_echeance_estimee": 712,
+    "resaux_avec_echeance_inconnue": 150,
+    "sources": ["FCU", "BOAMP", "DECP", "TED"]
+  },
+  "data": "Voir data_prep/final/reseaux_for_dashboard.json pour les données complètes au format JSON"
+}
