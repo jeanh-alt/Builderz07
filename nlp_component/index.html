@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NLP Research - Heat Networks Data Explorer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .search-container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+        
+        .search-box {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .search-box input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+        
+        .search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .search-box button {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .search-box button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .filters {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        
+        .filters select, .filters input {
+            padding: 10px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.9em;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px 25px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-card .value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-card .label {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .results-container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .results-count {
+            font-size: 1.1em;
+            color: #666;
+        }
+        
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        
+        .network-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+        
+        .network-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .network-card h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        
+        .network-card .meta {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .network-card .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        .confidence-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .confidence-confirmed {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .confidence-estimated {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .confidence-unknown {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .score-bar {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        
+        .score-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.5s;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 1.2em;
+        }
+        
+        .nlp-info {
+            background: #e7f3ff;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        
+        .nlp-info strong {
+            color: #007bff;
+        }
+        
+        @media (max-width: 768px) {
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            header h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 NLP Research - Heat Networks Explorer</h1>
+            <p>Search and analyze French heat networks data using natural language processing</p>
+        </header>
+        
+        <div class="nlp-component-info nlp-info">
+            <strong>NLP Component Status:</strong> Local JSON data loaded (Backend not ready - using local files)
+        </div>
+        
+        <div class="search-container">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search networks by name, location, gestionnaire, or any keyword...">
+                <button onclick="searchNetworks()">Search</button>
+            </div>
+            
+            <div class="filters">
+                <select id="regionFilter" onchange="filterNetworks()">
+                    <option value="">All Regions</option>
+                </select>
+                
+                <select id="confianceFilter" onchange="filterNetworks()">
+                    <option value="">All Confidence Levels</option>
+                    <option value="confirmee_boamp">Confirmed (BOAMP)</option>
+                    <option value="confirmee_ted">Confirmed (TED)</option>
+                    <option value="estimee">Estimated</option>
+                    <option value="inconnue">Unknown</option>
+                </select>
+                
+                <select id="titulaireFilter" onchange="filterNetworks()">
+                    <option value="">All Titulaires</option>
+                    <option value="Concurrent">Concurrent</option>
+                    <option value="ENGIE">ENGIE</option>
+                    <option value="Inconnu">Unknown</option>
+                </select>
+                
+                <select id="sortBy" onchange="sortNetworks()">
+                    <option value="score_desc">Sort by Score (High to Low)</option>
+                    <option value="echeance_asc">Sort by Deadline (Closest First)</option>
+                    <option value="name_asc">Sort by Name (A-Z)</option>
+                </select>
+            </div>
+            
+            <div class="stats" id="stats">
+                <div class="stat-card">
+                    <div class="value" id="totalCount">0</div>
+                    <div class="label">Total Networks</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="confirmedCount">0</div>
+                    <div class="label">Confirmed Deadlines</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="avgScore">0</div>
+                    <div class="label">Avg Opportunity Score</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="closestDeadline">-</div>
+                    <div class="label">Closest Deadline</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="results-container">
+            <div class="results-header">
+                <div class="results-count" id="resultsCount">Loading...</div>
+            </div>
+            
+            <div id="results" class="results-grid">
+                <div class="loading">Loading data from local JSON...</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Global variables
+        let allNetworks = [];
+        let filteredNetworks = [];
+        
+        // Initialize the application
+        async function init() {
+            try {
+                console.log('Loading data from local JSON file...');
+                
+                // Load JSON data from local file
+                const response = await fetch('../reseaux_chaleur.json');
+                if (!response.ok) {
+                    throw new Error('Failed to load JSON data');
+                }
+                
+                allNetworks = await response.json();
+                filteredNetworks = [...allNetworks];
+                
+                console.log('Data loaded:', allNetworks.length, 'networks');
+                
+                // Populate filters
+                populateFilters();
+                
+                // Calculate and display stats
+                updateStats();
+                
+                // Display all networks initially
+                displayNetworks(filteredNetworks);
+                
+            } catch (error) {
+                console.error('Error loading data:', error);
+                document.getElementById('results').innerHTML = `
+                    <div class="loading" style="color: red;">
+                        Error loading data. Please check if reseaux_chaleur.json exists in the parent directory.
+                        <br><br>
+                        <strong>Note:</strong> This is a local-only demo. The backend is not ready yet.
+                    </div>
+                `;
+            }
+        }
+        
+        // Populate filter dropdowns
+        function populateFilters() {
+            // Regions
+            const regions = [...new Set(allNetworks.map(n => n.region).filter(Boolean))].sort();
+            const regionFilter = document.getElementById('regionFilter');
+            regions.forEach(region => {
+                const option = document.createElement('option');
+                option.value = region;
+                option.textContent = region;
+                regionFilter.appendChild(option);
+            });
+        }
+        
+        // Update statistics
+        function updateStats() {
+            const total = filteredNetworks.length;
+            const confirmed = filteredNetworks.filter(n => n.confiance && n.confiance.includes('confirmee')).length;
+            const avgScore = (filteredNetworks.reduce((sum, n) => sum + (n.score_opportunite || 0), 0) / total).toFixed(2);
+            
+            // Find closest deadline
+            const validDeadlines = filteredNetworks
+                .map(n => n.echeance)
+                .filter(d => d && d !== 'null' && !isNaN(new Date(d)))
+                .sort();
+            
+            const closestDeadline = validDeadlines.length > 0 ? validDeadlines[0] : '-';
+            
+            document.getElementById('totalCount').textContent = total;
+            document.getElementById('confirmedCount').textContent = confirmed;
+            document.getElementById('avgScore').textContent = avgScore;
+            document.getElementById('closestDeadline').textContent = closestDeadline || '-';
+        }
+        
+        // Display networks
+        function displayNetworks(networks) {
+            const resultsContainer = document.getElementById('results');
+            const resultsCount = document.getElementById('resultsCount');
+            
+            resultsCount.textContent = `${networks.length} results found`;
+            
+            if (networks.length === 0) {
+                resultsContainer.innerHTML = '<div class="loading">No results found. Try different filters.</div>';
+                return;
+            }
+            
+            resultsContainer.innerHTML = networks.map(network => createNetworkCard(network)).join('');
+        }
+        
+        // Create network card HTML
+        function createNetworkCard(network) {
+            const confidenceClass = network.confiance === 'confirmee_boamp' || network.confiance === 'confirmee_ted' 
+                ? 'confidence-confirmed' 
+                : network.confiance === 'estimee' 
+                    ? 'confidence-estimated' 
+                    : 'confidence-unknown';
+            
+            const confidenceText = network.confiance || 'Unknown';
+            const scorePercentage = ((network.score_opportunite || 0) * 100).toFixed(1);
+            
+            return `
+                <div class="network-card" onclick="selectNetwork('${network.nom_reseau}')">
+                    <h3>${network.nom_reseau || 'Unknown Network'}</h3>
+                    
+                    <div class="meta">
+                        <div class="meta-item">
+                            <span>📍</span>
+                            <span>${network.communes || 'N/A'}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span>🏢</span>
+                            <span>${network.Gestionnaire || 'N/A'}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span>📅</span>
+                            <span>Deadline: ${network.echeance || 'N/A'}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span>✅</span>
+                            <span class="confidence-badge ${confidenceClass}">${confidenceText}</span>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 10px;">
+                        <strong>Opportunity Score: ${network.score_opportunite ? network.score_opportunite.toFixed(3) : 'N/A'}</strong>
+                        <div class="score-bar">
+                            <div class="score-fill" style="width: ${scorePercentage}%"></div>
+                        </div>
+                    </div>
+                    
+                    ${network.boamp_montant ? `
+                        <div class="meta-item" style="margin-top: 10px;">
+                            <span>💰</span>
+                            <span>${formatCurrency(network.boamp_montant)}</span>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+        
+        // Format currency
+        function formatCurrency(value) {
+            if (!value) return '';
+            return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(value);
+        }
+        
+        // Search networks using NLP-like keyword matching
+        function searchNetworks() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            
+            if (!query) {
+                filteredNetworks = [...allNetworks];
+            } else {
+                // Simple NLP: search in multiple fields
+                const keywords = query.split(' ').filter(k => k.length > 2);
+                
+                filteredNetworks = allNetworks.filter(network => {
+                    const searchableText = JSON.stringify(network).toLowerCase();
+                    return keywords.every(keyword => 
+                        searchableText.includes(keyword) ||
+                        (network.nom_reseau && network.nom_reseau.toLowerCase().includes(keyword)) ||
+                        (network.communes && network.communes.toLowerCase().includes(keyword)) ||
+                        (network.Gestionnaire && network.Gestionnaire.toLowerCase().includes(keyword)) ||
+                        (network.departement && network.departement.toLowerCase().includes(keyword)) ||
+                        (network.region && network.region.toLowerCase().includes(keyword))
+                    );
+                });
+            }
+            
+            updateStats();
+            displayNetworks(filteredNetworks);
+        }
+        
+        // Filter networks
+        function filterNetworks() {
+            const region = document.getElementById('regionFilter').value;
+            const confiance = document.getElementById('confianceFilter').value;
+            const titulaire = document.getElementById('titulaireFilter').value;
+            
+            let filtered = [...allNetworks];
+            
+            if (region) {
+                filtered = filtered.filter(n => n.region === region);
+            }
+            
+            if (confiance) {
+                filtered = filtered.filter(n => n.confiance === confiance);
+            }
+            
+            if (titulaire) {
+                filtered = filtered.filter(n => n.titulaire_est_engie === titulaire);
+            }
+            
+            // Apply search filter if present
+            const searchQuery = document.getElementById('searchInput').value;
+            if (searchQuery) {
+                filtered = filtered.filter(n => 
+                    JSON.stringify(n).toLowerCase().includes(searchQuery.toLowerCase())
+                );
+            }
+            
+            filteredNetworks = filtered;
+            updateStats();
+            displayNetworks(filteredNetworks);
+        }
+        
+        // Sort networks
+        function sortNetworks() {
+            const sortBy = document.getElementById('sortBy').value;
+            
+            switch(sortBy) {
+                case 'score_desc':
+                    filteredNetworks.sort((a, b) => (b.score_opportunite || 0) - (a.score_opportunite || 0));
+                    break;
+                case 'echeance_asc':
+                    filteredNetworks.sort((a, b) => {
+                        const dateA = new Date(a.echeance || '9999-12-31');
+                        const dateB = new Date(b.echeance || '9999-12-31');
+                        return dateA - dateB;
+                    });
+                    break;
+                case 'name_asc':
+                    filteredNetworks.sort((a, b) => (a.nom_reseau || '').localeCompare(b.nom_reseau || ''));
+                    break;
+            }
+            
+            displayNetworks(filteredNetworks);
+        }
+        
+        // Select a network (for future expansion)
+        function selectNetwork(name) {
+            console.log('Selected:', name);
+            // Could open a modal with detailed info
+            alert('Network selected: ' + name + '\n\nThis is a demo. Full details would be shown here when backend is ready.');
+        }
+        
+        // Allow search on Enter key
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('searchInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    searchNetworks();
+                }
+            });
+            
+            // Initialize
+            init();
+        });
+        
+        // Expose functions to global scope for HTML onclick handlers
+        window.searchNetworks = searchNetworks;
+        window.filterNetworks = filterNetworks;
+        window.sortNetworks = sortNetworks;
+        window.selectNetwork = selectNetwork;
+    </script>
+</body>
+</html>
