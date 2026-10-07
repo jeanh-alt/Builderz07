@@ -1,15 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  getNetworksWithCoords,
-  getFrenchRegions,
-  getNetworksByRegion,
-  searchNetworks,
-  fetchNetworksByStatus,
-  fetchNetworksByMinScore,
-  invalidateCache,
-} from '../lib/supabaseQueries';
+  fetchNetworksFromJSON,
+  fetchRegionsFromJSON,
+  filterNetworksByRegion,
+  filterNetworksByStatus,
+  filterNetworksByMinScore,
+  searchNetworksByName,
+} from '../lib/jsonLoader';
 import type { Network, Region } from '../types';
 
 // ============================================
@@ -29,7 +28,7 @@ interface NetworksData {
 
 /**
  * Hook personnalisé pour gérer le chargement des réseaux et régions
- * Utilise un cache global et des requêtes Supabase
+ * depuis les fichiers JSON locaux
  */
 export function useNetworks() {
   const [data, setData] = useState<NetworksData>({
@@ -39,14 +38,25 @@ export function useNetworks() {
     error: null,
   });
 
-  // Charge les données initiales
+  // Charge les données initiales depuis le JSON
   useEffect(() => {
     async function loadInitialData() {
       try {
         const [networks, regions] = await Promise.all([
-          getNetworksWithCoords(),
-          getFrenchRegions(),
+          fetchNetworksFromJSON(),
+          fetchRegionsFromJSON(),
         ]);
+
+        // Si on n'a pas de réseaux, on tente de retourner un message d'erreur
+        if (networks.length === 0) {
+          setData({
+            networks: [],
+            regions: [],
+            isLoading: false,
+            error: 'Aucun réseau trouvé dans le fichier JSON',
+          });
+          return;
+        }
 
         setData({
           networks,
@@ -55,11 +65,12 @@ export function useNetworks() {
           error: null,
         });
       } catch (err) {
+        console.error('Erreur lors du chargement des données JSON:', err);
         setData({
           networks: [],
           regions: [],
           isLoading: false,
-          error: 'Échec du chargement des données',
+          error: `Échec du chargement des données: ${err instanceof Error ? err.message : String(err)}`,
         });
       }
     }
@@ -70,8 +81,7 @@ export function useNetworks() {
   // Filtre les réseaux par région
   const networksByRegion = useCallback(
     (regionName: string | null) => {
-      if (!regionName) return data.networks;
-      return data.networks.filter(n => n.region === regionName);
+      return filterNetworksByRegion(data.networks, regionName);
     },
     [data.networks]
   );
@@ -79,16 +89,7 @@ export function useNetworks() {
   // Filtre les réseaux par statut
   const networksByStatus = useCallback(
     (status: string | null) => {
-      if (!status) return data.networks;
-      // Calcul du statut côté client pour l'instant
-      return data.networks.filter(n => {
-        const calculatedStatus = n.titulaire_est_engie === 'ENGIE'
-          ? (n.echeance && new Date(n.echeance) <= new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000)
-            ? 'ENGIE_RENOUVELLEMENT'
-            : 'ENGIE')
-          : 'NON_ENGIE';
-        return calculatedStatus === status;
-      });
+      return filterNetworksByStatus(data.networks, status);
     },
     [data.networks]
   );
@@ -96,16 +97,7 @@ export function useNetworks() {
   // Filtre les réseaux par score minimum
   const networksByMinScore = useCallback(
     (minScore: number | null) => {
-      if (minScore === null) return data.networks;
-      return data.networks.filter(n => {
-        const score = (
-          (n.score_echeance || 0) * 0.4 +
-          (n.score_taille || 0) * 0.3 +
-          Math.min((n.boamp_montant || 0) / 50000000, 1) * 0.2 +
-          (n.score_concurrence || 0) * 0.1
-        );
-        return score >= minScore;
-      });
+      return filterNetworksByMinScore(data.networks, minScore);
     },
     [data.networks]
   );
@@ -113,10 +105,7 @@ export function useNetworks() {
   // Recherche par nom
   const searchByName = useCallback(
     (query: string) => {
-      if (!query) return data.networks;
-      return data.networks.filter(n =>
-        n.nom_reseau.toLowerCase().includes(query.toLowerCase())
-      );
+      return searchNetworksByName(data.networks, query);
     },
     [data.networks]
   );
@@ -132,66 +121,25 @@ export function useNetworks() {
       let result = [...data.networks];
 
       if (filters.region) {
-        result = result.filter(n => n.region === filters.region);
+        result = filterNetworksByRegion(result, filters.region);
       }
 
       if (filters.status) {
-        result = result.filter(n => {
-          const calculatedStatus = n.titulaire_est_engie === 'ENGIE'
-            ? (n.echeance && new Date(n.echeance) <= new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000)
-              ? 'ENGIE_RENOUVELLEMENT'
-              : 'ENGIE')
-            : 'NON_ENGIE';
-          return calculatedStatus === filters.status;
-        });
+        result = filterNetworksByStatus(result, filters.status);
       }
 
       if (filters.minScore !== undefined) {
-        result = result.filter(n => {
-          const score = (
-            (n.score_echeance || 0) * 0.4 +
-            (n.score_taille || 0) * 0.3 +
-            Math.min((n.boamp_montant || 0) / 50000000, 1) * 0.2 +
-            (n.score_concurrence || 0) * 0.1
-          );
-          return score >= (filters.minScore || 0);
-        });
+        result = filterNetworksByMinScore(result, filters.minScore);
       }
 
       if (filters.search) {
-        result = result.filter(n =>
-          n.nom_reseau.toLowerCase().includes((filters.search || '').toLowerCase())
-        );
+        result = searchNetworksByName(result, filters.search);
       }
 
       return result;
     },
     [data.networks]
   );
-
-  // Invalide le cache et recharge
-  const refreshData = useCallback(async () => {
-    invalidateCache();
-    try {
-      const [networks, regions] = await Promise.all([
-        getNetworksWithCoords(),
-        getFrenchRegions(),
-      ]);
-
-      setData(prev => ({
-        ...prev,
-        networks,
-        regions,
-        isLoading: false,
-      }));
-    } catch (err) {
-      setData(prev => ({
-        ...prev,
-        isLoading: false,
-        error: 'Échec du rechargement des données',
-      }));
-    }
-  }, []);
 
   // Récupère une région par son nom
   const getRegion = useCallback(
@@ -208,7 +156,6 @@ export function useNetworks() {
     networksByMinScore,
     searchByName,
     filteredNetworks,
-    refreshData,
     getRegion,
   };
 }
@@ -228,7 +175,7 @@ export function useSimpleNetworks() {
   useEffect(() => {
     async function loadNetworks() {
       try {
-        const data = await getNetworksWithCoords();
+        const data = await fetchNetworksFromJSON();
         setNetworks(data);
       } catch (err) {
         setError('Échec du chargement des réseaux');
@@ -258,7 +205,7 @@ export function useRegions() {
   useEffect(() => {
     async function loadRegions() {
       try {
-        const data = await getFrenchRegions();
+        const data = await fetchRegionsFromJSON();
         setRegions(data);
       } catch (err) {
         setError('Échec du chargement des régions');
