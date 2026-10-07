@@ -1,43 +1,92 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-/* Reset and base styles */
+/* ===========================================
+   Fluid Design System Engie - Inline Styles
+   =========================================== */
+
+/* Base Reset */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
+/* Body - Fluid Design System */
 body {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: #FFFFFF;
-  color: #2C3E50;
+  color: #2C3E50; /* engie-text-dark */
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Typography */
-h1, h2, h3, h4 {
-  color: #2C3E50;
+/* Typography - Fluid Design System */
+h1, h2, h3, h4, h5, h6 {
+  color: #2C3E50; /* engie-text-dark */
   font-weight: bold;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-h1 { font-size: 1.5rem; }
+h1 {
+  font-size: 1.5rem;
+}
+
 @media (min-width: 768px) {
-  h1 { font-size: 1.875rem; }
+  h1 {
+    font-size: 1.875rem;
+  }
 }
 
-h2 { font-size: 1.25rem; }
+h2 {
+  font-size: 1.25rem;
+}
+
 @media (min-width: 768px) {
-  h2 { font-size: 1.5rem; }
+  h2 {
+    font-size: 1.5rem;
+  }
 }
 
+/* Links - Fluid Design System */
 a {
-  color: #00A86B;
+  color: #00A86B; /* engie-primary */
   text-decoration: none;
 }
 
 a:hover {
-  color: #00825A;
+  color: #00825A; /* engie-primary-dark */
 }
+
+/* ===========================================
+   Engie Color Classes
+   =========================================== */
+
+/* Primary Colors */
+.text-engie-primary { color: #00A86B; }
+.bg-engie-primary { background-color: #00A86B; }
+.hover\:bg-engie-primary-dark:hover { background-color: #00825A; }
+
+/* Text Colors */
+.text-engie-text-dark { color: #2C3E50; }
+.text-engie-text-medium { color: #6C757D; }
+.text-engie-text-light { color: #9E9E9E; }
+
+/* Background Colors */
+.bg-engie-bg { background-color: #FFFFFF; }
+.bg-engie-bg-light { background-color: #F8F9FA; }
+
+/* Network Status Colors */
+.network-engie { color: #00A86B; background-color: #00A86B; }
+.network-engie-soon { color: #4CAF50; background-color: #4CAF50; }
+.network-high-score { color: #E53935; background-color: #E53935; }
+.network-medium-score { color: #FF9800; background-color: #FF9800; }
+.network-low-score { color: #D32F2F; background-color: #D32F2F; }
+.network-unknown { color: #9E9E9E; background-color: #9E9E9E; }
+
+/* ===========================================
+   Components - Fluid Design System
+   =========================================== */
 
 /* Buttons */
 .btn-primary {
@@ -46,7 +95,11 @@ a:hover {
   font-weight: 600;
   padding: 0.5rem 1rem;
   border-radius: 0.375rem;
-  transition: background-color 0.2s;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 0.875rem;
 }
 
 .btn-primary:hover {
@@ -60,7 +113,10 @@ a:hover {
   padding: 0.5rem 1rem;
   border-radius: 0.375rem;
   border: 2px solid #00A86B;
-  transition: background-color 0.2s;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 0.875rem;
 }
 
 .btn-secondary:hover {
@@ -74,6 +130,7 @@ a:hover {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   padding: 1rem;
   border: 1px solid #e5e7eb;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 /* Search Bar */
@@ -84,7 +141,9 @@ a:hover {
   border-radius: 9999px;
   border: 1px solid #d1d5db;
   outline: none;
-  transition: box-shadow 0.2s;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 0.875rem;
+  transition: box-shadow 0.2s ease;
 }
 
 .search-bar:focus {
@@ -98,25 +157,210 @@ a:hover {
   position: relative;
 }
 
-/* Leaflet Fixes */
+/* ===========================================
+   Leaflet Fixes
+   =========================================== */
 .leaflet-container {
   height: 100%;
   width: 100%;
+  background-color: #f8f9fa;
 }
 
 .leaflet-popup-content {
   color: #2C3E50;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 0.875rem;
 }
 
 .leaflet-popup-content-wrapper {
   border: none;
+  background-color: white;
 }
 
-/* Utility classes */
-.text-engie-primary { color: #00A86B; }
-.bg-engie-primary { background-color: #00A86B; }
+.leaflet-popup-content-wrapper .leaflet-popup-content {
+  margin: 13px 19px;
+}
 
-.text-engie-text-dark { color: #2C3E50; }
-.text-engie-text-medium { color: #6C757D; }
-.text-engie-text-light { color: #9E9E9E; }
+.leaflet-bar a {
+  background-color: #00A86B !important;
+  border-color: #00825A !important;
+}
+
+.leaflet-bar a:hover {
+  background-color: #00825A !important;
+}
+
+/* ===========================================
+   Header Styles
+   =========================================== */
+header {
+  background-color: white;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  z-index: 100;
+}
+
+header h1 {
+  color: #2C3E50;
+  font-size: 1.5rem;
+}
+
+header p {
+  color: #6C757D;
+  font-size: 0.875rem;
+}
+
+/* Legend Container */
+.legend-container {
+  background-color: white;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.legend-container .legend-label {
+  color: #6C757D;
+  margin-right: 0.5rem;
+}
+
+.legend-container .legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.legend-container .legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* Network Status Colors for legend */
+.legend-color.engie { background-color: #00A86B; }
+.legend-color.engie-soon { background-color: #4CAF50; }
+.legend-color.high-score { background-color: #E53935; }
+.legend-color.medium-score { background-color: #FF9800; }
+.legend-color.low-score { background-color: #D32F2F; }
+.legend-color.unknown { background-color: #9E9E9E; }
+
+/* Modal Styles */
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1000;
+  max-width: 24rem;
+  margin: 1rem;
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  padding: 1rem;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.modal-header h2 {
+  color: #2C3E50;
+  font-size: 1.125rem;
+}
+
+.modal-close {
+  cursor: pointer;
+  color: #6C757D;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  color: #2C3E50;
+}
+
+.modal-body {
+  font-size: 0.875rem;
+  color: #2C3E50;
+}
+
+.modal-body .modal-section {
+  padding-top: 0.5rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.modal-body .modal-label {
+  font-weight: 600;
+  color: #2C3E50;
+}
+
+/* Score Badge */
+.score-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 0.5rem;
+}
+
+/* Loading State */
+.loading-container {
+  display: flex;
+  items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: white;
+}
+
+.loading-content {
+  text-align: center;
+}
+
+.loading-content h1 {
+  color: #2C3E50;
+}
+
+.loading-content p {
+  color: #6C757D;
+  margin-top: 0.5rem;
+}
+
+/* Region Highlight */
+.region-highlight {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.region-highlight:hover {
+  fill-opacity: 0.3 !important;
+}
+
+/* Button to return */
+.btn-return {
+  background-color: white;
+  color: #00A86B;
+  border: 2px solid #00A86B;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.btn-return:hover {
+  background-color: #E3F5E8;
+}
