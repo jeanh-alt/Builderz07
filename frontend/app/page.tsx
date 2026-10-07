@@ -1,18 +1,58 @@
 'use client';
 
-import { useState } from 'react';
-import { MapContainer, TileLayer, GeoJSON, Marker, Popup, useMapEvents } from 'react-leaflet';
-import L, { DivIcon } from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import { useState, useEffect, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 
+// Dynamically import everything from react-leaflet and leaflet to avoid SSR issues
+const MapContainerNoSSR = dynamic(
+  () => import('react-leaflet').then((mod) => mod.MapContainer),
+  {
+    ssr: false,
+    loading: () => <p className="text-engie-text-dark p-4">Chargement de la carte...</p>,
+  }
+);
+
+const TileLayerNoSSR = dynamic(
+  () => import('react-leaflet').then((mod) => mod.TileLayer),
+  { ssr: false }
+);
+
+const GeoJSONNoSSR = dynamic(
+  () => import('react-leaflet').then((mod) => mod.GeoJSON),
+  { ssr: false }
+);
+
+const MarkerNoSSR = dynamic(
+  () => import('react-leaflet').then((mod) => mod.Marker),
+  { ssr: false }
+);
+
+const PopupNoSSR = dynamic(
+  () => import('react-leaflet').then((mod) => mod.Popup),
+  { ssr: false }
+);
+
+// Import data and types (these are safe as they don't use window)
 import { networksWithCoords, getNetworksByRegion } from '../data/networks';
 import { frenchRegions, getRegionByName, FRANCE_CENTER } from '../data/regions';
 import { Network, NetworkStatus, statusToColor, statusToLabel, calculateNetworkStatus, calculateGlobalScore } from '../types';
 
-// Custom network icon based on status using DivIcon
-const createNetworkIcon = (status: NetworkStatus) => {
+// Network Marker Component (uses leaflet only on client)
+const NetworkMarker = ({ network, onClick }: { network: Network; onClick: () => void }) => {
+  const [L, setL] = useState<any>(null);
+
+  useEffect(() => {
+    import('leaflet').then((leaflet) => {
+      setL(leaflet);
+    });
+  }, []);
+
+  if (!L) return null;
+
+  const status = calculateNetworkStatus(network);
   const color = statusToColor[status];
-  return L.divIcon({
+
+  const icon = L.divIcon({
     className: 'network-marker',
     html: `
       <div style="
@@ -41,20 +81,21 @@ const createNetworkIcon = (status: NetworkStatus) => {
     iconAnchor: [12, 24],
     popupAnchor: [0, -24],
   });
+
+  if (!network.lat || !network.lng) return null;
+
+  return (
+    <MarkerNoSSR
+      position={[network.lat, network.lng]}
+      icon={icon}
+      eventHandlers={{
+        click: onClick,
+      }}
+    />
+  );
 };
 
-// Region style
-const getRegionStyle = (isHovered: boolean, isSelected: boolean) => {
-  return {
-    fillColor: isSelected ? '#00A86B' : isHovered ? '#E3F5E8' : '#6C757D',
-    fillOpacity: isSelected ? 0.4 : isHovered ? 0.3 : 0.1,
-    color: '#FFFFFF',
-    weight: isSelected ? 3 : isHovered ? 2 : 1,
-    opacity: 1,
-  };
-};
-
-// Component to handle region hover
+// Region Highlight Component
 const RegionHighlight = ({ region, isSelected, onClick }: {
   region: any;
   isSelected: boolean;
@@ -62,10 +103,16 @@ const RegionHighlight = ({ region, isSelected, onClick }: {
 }) => {
   const [isHovered, setIsHovered] = useState(false);
 
-  const style = getRegionStyle(isHovered, isSelected);
+  const style = {
+    fillColor: isSelected ? '#00A86B' : isHovered ? '#E3F5E8' : '#6C757D',
+    fillOpacity: isSelected ? 0.4 : isHovered ? 0.3 : 0.1,
+    color: '#FFFFFF',
+    weight: isSelected ? 3 : isHovered ? 2 : 1,
+    opacity: 1,
+  };
 
   return (
-    <GeoJSON
+    <GeoJSONNoSSR
       data={region.geojson}
       style={style}
       onEachFeature={(_, layer) => {
@@ -79,32 +126,31 @@ const RegionHighlight = ({ region, isSelected, onClick }: {
   );
 };
 
-// Component to handle map events
-const MapEventsHandler = ({ onClick }: { onClick: () => void }) => {
-  useMapEvents({
-    click: () => onClick(),
-  });
-  return null;
-};
-
 // Main page component
 export default function Home() {
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [hoveredNetwork, setHoveredNetwork] = useState<Network | null>(null);
   const [zoom, setZoom] = useState<number>(6);
   const [center, setCenter] = useState<[number, number]>(FRANCE_CENTER);
+  const [isClient, setIsClient] = useState(false);
+
+  // Ensure we're on the client before rendering
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Filter networks based on selected region
-  const filteredNetworks = selectedRegion
-    ? getNetworksByRegion(selectedRegion)
-    : networksWithCoords;
+  const filteredNetworks = useMemo(() => {
+    return selectedRegion
+      ? getNetworksByRegion(selectedRegion)
+      : networksWithCoords;
+  }, [selectedRegion]);
 
   // Handle region click
   const handleRegionClick = (regionName: string) => {
     setSelectedRegion(regionName === selectedRegion ? null : regionName);
     const region = getRegionByName(regionName);
     if (region) {
-      // Region centers for zooming
       const regionCenters: Record<string, [number, number]> = {
         'Île-de-France': [48.8566, 2.3522],
         'Pays de la Loire': [47.4635, -0.546],
@@ -141,8 +187,26 @@ export default function Home() {
     setZoom(6);
   };
 
+  // Don't render anything until client-side
+  if (!isClient) {
+    return (
+      <main className="min-h-screen bg-white">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-engie-text-dark">
+              Réseaux de Chaleur - Engie
+            </h1>
+            <p className="text-engie-text-medium mt-2">
+              Chargement de la carte...
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
-    <main className="min-h-screen bg-engie-bg">
+    <main className="min-h-screen bg-white">
       {/* Header */}
       <header className="bg-white shadow-sm p-4 flex justify-between items-center">
         <div>
@@ -167,27 +231,27 @@ export default function Home() {
             <div className="flex items-center gap-2 text-sm bg-white p-2 rounded-lg shadow-sm">
               <span className="text-engie-text-medium mr-2">Légende:</span>
               <div className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-[#00A86B]"></span>
+                <span className="w-3 h-3 rounded-full bg-network-engie"></span>
                 <span>Engie</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-[#4CAF50]"></span>
+                <span className="w-3 h-3 rounded-full bg-network-engie-soon"></span>
                 <span>Engie &lt;2ans</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-[#E53935]"></span>
+                <span className="w-3 h-3 rounded-full bg-network-high-score"></span>
                 <span>Score ≥ 0.8</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-[#FF9800]"></span>
+                <span className="w-3 h-3 rounded-full bg-network-medium-score"></span>
                 <span>Score 0.6-0.8</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-[#D32F2F]"></span>
+                <span className="w-3 h-3 rounded-full bg-network-low-score"></span>
                 <span>Score &lt; 0.6</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-[#9E9E9E]"></span>
+                <span className="w-3 h-3 rounded-full bg-network-unknown"></span>
                 <span>Inconnu</span>
               </div>
             </div>
@@ -197,7 +261,7 @@ export default function Home() {
 
       {/* Map Container */}
       <div className="map-container relative">
-        <MapContainer
+        <MapContainerNoSSR
           center={center}
           zoom={zoom}
           style={{ height: '100%', width: '100%' }}
@@ -205,7 +269,7 @@ export default function Home() {
           maxZoom={18}
         >
           {/* Base Map Layer */}
-          <TileLayer
+          <TileLayerNoSSR
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           />
@@ -221,68 +285,14 @@ export default function Home() {
           ))}
 
           {/* Networks Markers */}
-          {filteredNetworks.map((network) => {
-            const status = calculateNetworkStatus(network);
-            const score = calculateGlobalScore(network);
-            const color = statusToColor[status];
-            const label = statusToLabel[status];
-
-            // Only show networks that have coordinates
-            if (!network.lat || !network.lng) return null;
-
-            return (
-              <Marker
-                key={network.id}
-                position={[network.lat, network.lng]}
-                icon={createNetworkIcon(status)}
-                eventHandlers={{
-                  click: () => setHoveredNetwork(network),
-                }}
-              >
-                <Popup>
-                  <div className="min-w-[200px]">
-                    <h3 className="font-bold text-engie-text-dark mb-1">
-                      {network.nom_reseau}
-                    </h3>
-                    <p className="text-sm text-engie-text-medium mb-2">
-                      {network.region} • {network.departement}
-                    </p>
-                    <div className="mb-2">
-                      <span
-                        className="inline-block px-2 py-1 text-xs rounded-full text-white"
-                        style={{ backgroundColor: color }}
-                      >
-                        {label}
-                      </span>
-                    </div>
-                    <div className="text-sm space-y-1">
-                      <p>
-                        <span className="font-medium">Gestionnaire:</span> {network.gestionnaire}
-                      </p>
-                      <p>
-                        <span className="font-medium">Points de livraison:</span> {network.nb_pdl}
-                      </p>
-                      <p>
-                        <span className="font-medium">Longueur:</span> {network.longueur_reseau} km
-                      </p>
-                      <p>
-                        <span className="font-medium">Score:</span> {score.toFixed(2)}
-                      </p>
-                      {network.echeance && (
-                        <p>
-                          <span className="font-medium">Échéance:</span> {network.echeance}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </Popup>
-              </Marker>
-            );
-          })}
-
-          {/* Map Click Handler */}
-          <MapEventsHandler onClick={handleMapClick} />
-        </MapContainer>
+          {filteredNetworks.map((network) => (
+            <NetworkMarker
+              key={network.id}
+              network={network}
+              onClick={() => setHoveredNetwork(network)}
+            />
+          ))}
+        </MapContainerNoSSR>
       </div>
 
       {/* Network Details Modal */}
