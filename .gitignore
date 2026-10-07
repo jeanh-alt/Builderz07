@@ -2,3 +2,4 @@
 __pycache__/
 *.pyc
 data_prep/raw/fcu_reseaux.kml
+frontend/.env.local

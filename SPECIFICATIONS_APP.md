@@ -1,6 +1,6 @@
 # **Spécifications Techniques - Carte des Réseaux de Chaleur Engie**
 > *Template de spécifications précises pour exécution distribuée sur 4 builders avec Vibe*
-> **Durée cible : 1h30 max** | **Version : 1.0** | **Date : 2026-10-07**
+> **Durée cible : 1h30 max** | **Version : 2.0** | **Date : 2026-10-07** | **Dernière mise à jour : Annulation Supabase, passage en JSON local**
 
 ---
 
@@ -22,7 +22,7 @@ Les directeurs France et les commerciaux Engie ont besoin d'une **visualisation 
 | **IN** ✅ | **OUT** ❌ |
 |-----------|-----------|
 | Carte interactive (Leaflet/Mapbox) | Authentification |
-| Données des réseaux (Supabase) | Base de données utilisateurs |
+| Données des réseaux (JSON local) | Base de données utilisateurs |
 | Scoring automatique (échéance, montant, taille) | CRM intégrée |
 | Recommandations LLM (Voxtral) | Export PDF/Excel |
 | Recherche en langage naturel | Mobile app (web-only) |
@@ -30,8 +30,8 @@ Les directeurs France et les commerciaux Engie ont besoin d'une **visualisation 
 
 ### 0.4 **Contraintes**
 - **Temps** : 1h30 max (incluant tests et validation)
-- **Stack** : Frontend libre (Next.js recommandé), Backend Supabase, Déploiement Vercel
-- **Données** : Utiliser les fichiers CSV/JSON existants dans `/data_prep/final/`
+- **Stack** : Frontend Next.js + TypeScript + TailwindCSS, Déploiement Vercel
+- **Données** : Utiliser les fichiers JSON locaux (`frontend/data/reseaux.json` basé sur `data_prep/final/reseaux_for_dashboard.json`)
 - **Pas d'auth** : Démo publique, pas de gestion d'utilisateurs
 - **Design** : **Fluid Design System Engie** (voir section 2.5). Couleurs, typographie et composants prédéfinis.
 
@@ -194,7 +194,8 @@ Les directeurs France et les commerciaux Engie ont besoin d'une **visualisation 
 ### 2.1 **Architecture Globale**
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        FRONTEND (Next.js / Vercel)                      │
+│                  FRONTEND (Next.js / Vercel - Static Site)             │
+│                                                                         │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────────┐   │
 │  │  Carte       │    │  Search/NLP   │    │  Détails + LLM            │   │
 │  │  (Leaflet)   │    │  (US-004)    │    │  (US-003)               │   │
@@ -204,12 +205,12 @@ Les directeurs France et les commerciaux Engie ont besoin d'une **visualisation 
         │                    │                       │
         ▼                    ▼                       ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        BACKEND (Supabase)                             │
+│                    DONNÉES JSON LOCALES                               │
 │  ┌───────────────────────────────────────────────────────────────┐  │
-│  │  Table: reseaux (toutes les données + scores pré-calculés)      │  │
+│  │  frontend/data/reseaux.json (toutes les données réseaux)          │  │
 │  └───────────────────────────────────────────────────────────────┘  │
 │  ┌───────────────────────────────────────────────────────────────┐  │
-│  │  Table: regions (géodonnées pour la carte)                     │  │
+│  │  frontend/data/regions.ts (géodonnées simplifiées)               │  │
 │  └───────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -220,7 +221,7 @@ Les directeurs France et les commerciaux Engie ont besoin d'une **visualisation 
 | **Frontend** | Next.js (App Router) | 14+ | Framework moderne, SSR/SSG, facile à déployer sur Vercel |
 | **Map Library** | Leaflet + React-Leaflet | Latest | Légère, open-source, bonne doc |
 | **UI** | TailwindCSS | 3.x | Rapidité de développement + **Fluid Design System Engie** (voir section 2.5) |
-| **Backend** | Supabase (PostgreSQL) | Latest | Base de données managée, gratuite pour la démo |
+| **Données** | JSON local | - | Données statiques dans `frontend/data/reseaux.json` |
 | **LLM** | Voxtral (API) | - | Pour les recommandations (**clé API disponible**, pas de mock nécessaire) |
 | **Déploiement** | Vercel | - | Intégration native avec Next.js |
 
@@ -323,84 +324,60 @@ Engie utilise le **Fluid Design System** pour une identité visuelle cohérente.
 
 ---
 
-### 2.3 **Modèle de Données (Supabase)**
+### 2.3 **Modèle de Données (JSON Local)**
 
-#### **Table `reseaux`** *(Données principales)*
-> *Basé sur `data_prep/final/reseaux_for_dashboard.json`*
+#### **Fichier `frontend/data/reseaux.json`** *(Données principales)*
+> *Basé sur `data_prep/final/reseaux_for_dashboard.json` - chargé directement par le frontend*
 
-| Champ | Type | Required | Description | Exemple |
-|-------|------|----------|-------------|---------|
-| `id` | UUID | ✅ | Identifiant unique | `a0eebc99-...` |
-| `identifiant_reseau` | TEXT | ✅ | ID original (ex: `4401C`) | `"4401C"` |
-| `nom_reseau` | TEXT | ✅ | Nom du réseau | `"Réseau de Nantes"` |
-| `communes` | TEXT[] | ✅ | Liste des communes couvertes | `["Nantes", "Rezé"]` |
-| `departement` | TEXT | ✅ | Département | `"Loire-Atlantique"` |
-| `region` | TEXT | ✅ | Région | `"Pays de la Loire"` |
-| `mo` | TEXT | ✅ | Maître d'Ouvrage | `"Nantes Métropole"` |
-| `gestionnaire` | TEXT | ✅ | Gestionnaire actuel | `"ERENA (ENGIE SOLUTIONS)"` |
-| `annee_creation` | INTEGER | ❌ | Année de création | `1970` |
-| `longueur_reseau` | FLOAT | ❌ | Longueur en km | `87.0` |
-| `nb_pdl` | INTEGER | ❌ | Nombre de points de livraison | `476` |
-| `taux_enr_r` | FLOAT | ❌ | Taux EnR&R (%) | `79.1` |
-| `echeance` | DATE | ❌ | Date de fin de contrat | `2036-12-16` |
-| `confiance` | TEXT | ❌ | Source de l'échéance | `"confirmee_boamp"` |
-| `titulaire_est_engie` | TEXT | ❌ | Statut Engie | `"ENGIE"` / `"Concurrent"` / `"Inconnu"` |
-| `boamp_montant` | FLOAT | ❌ | Montant du marché (€) | `107251894.0` |
-| `score_echeance` | FLOAT | ❌ | Score échéance (0-1) | `0.942` |
-| `score_taille` | FLOAT | ❌ | Score taille (0-1) | `0.891` |
-| `score_concurrence` | FLOAT | ❌ | Score concurrence (0-1) | `1.0` |
-| `score_opportunite` | FLOAT | ❌ | Score global (0-1) | `0.65` |
-| `ted_lien` | TEXT | ❌ | Lien vers l'avis TED | `"https://ted.europa.eu/..."` |
-| `ted_dernier_avis` | DATE | ❌ | Date du dernier avis | `2023-02-07` |
-| `has_geometry` | BOOLEAN | ❌ | A des coordonnées géo ? | `true` |
-| `lat` | FLOAT | ❌ | Latitude (pour la carte) | `47.2184` |
-| `lng` | FLOAT | ❌ | Longitude (pour la carte) | `-1.5536` |
+**Structure d'un réseau** (objet JSON) :
 
-> **Note** : Pour les réseaux sans `lat`/`lng`, utiliser le **centroïde de la région** (ex: `regionCentroides` dans le code). Voir exemple en section 2.5.
+| Champ | Type | Description | Exemple |
+|-------|------|-------------|---------|
+| `id` | string | Identifiant unique | `"a0eebc99-..."` |
+| `identifiant_reseau` | string | ID original | `"4401C"` |
+| `nom_reseau` | string | Nom du réseau | `"Réseau de Nantes"` |
+| `communes` | string[] | Communes couvertes | `["Nantes", "Rezé"]` |
+| `departement` | string | Département | `"Loire-Atlantique"` |
+| `region` | string | Région | `"Pays de la Loire"` |
+| `mo` | string | Maître d'Ouvrage | `"Nantes Métropole"` |
+| `gestionnaire` | string | Gestionnaire actuel | `"ERENA (ENGIE SOLUTIONS)"` |
+| `annee_creation` | number | Année de création | `1970` |
+| `longueur_reseau` | number | Longueur en km | `87.0` |
+| `nb_pdl` | number | Nombre de points de livraison | `476` |
+| `taux_enr_r` | number | Taux EnR&R (%) | `79.1` |
+| `echeance` | string | Date de fin de contrat (YYYY-MM-DD) | `"2036-12-16"` |
+| `confiance` | string | Source de l'échéance | `"confirmee_boamp"` |
+| `titulaire_est_engie` | string | Statut Engie | `"ENGIE"` / `"Concurrent"` / `"Inconnu"` |
+| `boamp_montant` | number | Montant du marché (€) | `107251894.0` |
+| `score_echeance` | number | Score échéance (0-1) | `0.942` |
+| `score_taille` | number | Score taille (0-1) | `0.891` |
+| `score_concurrence` | number | Score concurrence (0-1) | `1.0` |
+| `score_opportunite` | number | Score global (0-1) | `0.65` |
+| `has_geometry` | boolean | A des coordonnées géo ? | `true` |
+| `lat` | number | Latitude | `47.2184` |
+| `lng` | number | Longitude | `-1.5536` |
 
-#### **Table `regions`** *(Géodonnées pour la carte)*
-| Champ | Type | Required | Description |
-|-------|------|----------|-------------|
-| `id` | UUID | ✅ | Identifiant unique |
-| `nom` | TEXT | ✅ | Nom de la région | `"Île-de-France"` |
-| `geojson` | JSONB | ✅ | Polygone GeoJSON de la région |
-| `couleur` | TEXT | ✅ | Couleur hex pour la carte | `"#FF0000"` |
+> **Note** : Pour les réseaux sans `lat`/`lng`, le frontend utilise le **centroïde de la région** via `regionCentroides` (voir `frontend/types/index.ts`).
 
-#### **Table `recommandations`** *(Cache pour les réponses LLM)*
-| Champ | Type | Required | Description |
-|-------|------|----------|-------------|
-| `id` | UUID | ✅ | Identifiant unique |
-| `reseau_id` | UUID | ✅ | Lien vers `reseaux.id` |
-| `recommandation` | TEXT | ✅ | Texte généré par Voxtral |
-| `created_at` | TIMESTAMP | ✅ | Date de création |
-| `score` | FLOAT | ✅ | Score associé (0-1) |
+#### **Fichier `frontend/data/regions.ts`** *(Géodonnées pour la carte)*
+- Contient des **polygones GeoJSON simplifiés** pour chaque région française
+- Chaque région a : `id`, `nom`, `geojson`, `couleur`
 
-#### **Vues Supabase** *(Pour simplifier les requêtes)*
-1. **`reseaux_avec_statut`** :
-   - Ajoute un champ `statut` calculé (Engie / Engie <2ans / Non-Engie / Inconnu)
-   - Ajoute un champ `score_global` (moyenne pondérée des scores)
-   - Filtre : `WHERE has_geometry = true` (pour la carte)
-
-2. **`reseaux_par_region`** :
-   - Regroupe les réseaux par région avec stats (count, avg score, etc.)
+> **Note** : Les GeoJSON sont simplifiés (rectangles approximatifs) pour un chargement rapide. Pour une version production, utiliser des GeoJSON officiels INSEE.
 
 ---
 
-### 2.4 **Endpoints API (Supabase REST)**
-> *Utilisation des endpoints auto-générés par Supabase*
+### 2.4 **Chargement des Données**
+> *Pas de backend - chargement direct côté client depuis les fichiers JSON*
 
-| Méthode | Endpoint | Description | Exemple de réponse |
-|---------|----------|-------------|------------------|
-| GET | `/rest/v1/reseaux?select=*` | Liste tous les réseaux | `{ data: [ {...}, ... ] }` |
-| GET | `/rest/v1/reseaux?region=eq.Île-de-France` | Filtre par région | `{ data: [ {...}, ... ] }` |
-| GET | `/rest/v1/reseaux?id=eq.{uuid}` | Détails d'un réseau | `{ data: [ {...} ] }` |
-| GET | `/rest/v1/regions?select=*` | Liste des régions (GeoJSON) | `{ data: [ {...}, ... ] }` |
-
-> **Note** : Pas besoin de backend custom, Supabase gère tout.
+- **Fonction principale** : `fetchNetworksFromJSON()` dans `frontend/lib/jsonLoader.ts`
+- **Conversion** : Les données brutes sont converties en objets `Network` typés via `rawToNetwork()`
+- **Fallback coordonnées** : Si un réseau n'a pas de `lat`/`lng`, utilisation du centroïde de sa région
+- **Performance** : Chargement asynchrone avec cache local
 
 ---
 
-### 2.5 **Algorithme de Scoring** *(Côté Frontend ou Supabase)*
+### 2.5 **Algorithme de Scoring** *(Côté Frontend - `frontend/types/index.ts`)*
 ```typescript
 // Calcul du statut (US-002)
 function getStatut(reseau: Reseau): Statut {
@@ -438,11 +415,9 @@ function calculerScoreGlobal(reseau: Reseau): number {
 ---
 
 ### 2.6 **Géolocalisation des Réseaux**
-- **Source** : Les CSV/JSON existants ont des coordonnées pour certains réseaux (`_has_geometry`).
-- **Fallback** : Pour les réseaux sans coordonnées :
-  - Utiliser la **latitude/longitude du centroïde de la région** (ex: Nantes pour la Loire-Atlantique).
-  - ou **ignorer** (ne pas afficher sur la carte).
-- **Format** : GeoJSON pour les régions, points pour les réseaux.
+- **Source** : Le fichier `frontend/data/reseaux.json` contient des coordonnées (`lat`, `lng`) pour les réseaux qui en ont (`has_geometry: true`).
+- **Fallback** : Pour les réseaux sans coordonnées, le frontend utilise **automatiquement le centroïde de la région** via la fonction `getNetworkCoords()` dans `frontend/types/index.ts`.
+- **Format** : Points simples pour les réseaux, GeoJSON simplifiés pour les régions.
 
 ---
 
@@ -454,7 +429,7 @@ function calculerScoreGlobal(reseau: Reseau): number {
   - [ ] Initialiser un projet **Next.js** (App Router) + TailwindCSS.
   - [ ] Intégrer **Leaflet** avec React-Leaflet.
   - [ ] Charger les **régions françaises** (GeoJSON) et les afficher comme couches cliquables.
-  - [ ] Charger les **réseaux** (depuis Supabase ou JSON local) et les afficher comme des **markers** colorés.
+  - [ ] Charger les **réseaux** (depuis `frontend/data/reseaux.json`) et les afficher comme des **markers** colorés.
   - [ ] Implémenter le **zoom régional** (clic sur une région → zoom + focus).
   - [ ] Ajouter une **légende** pour les couleurs.
   - [ ] Gérer les **performances** (lazy loading des markers).
@@ -469,29 +444,27 @@ function calculerScoreGlobal(reseau: Reseau): number {
 
 ---
 
-### 📊 **Builder 2 - Backend : Données & Scoring (US-002)**
+### 📊 **Builder 2 - Data Preparation & Scoring (US-002)**
 > *Responsable : @[à assigner]*
-- **Tâches** :
-  - [ ] **Créer la base Supabase** :
-    - Importer les données de `data_prep/final/reseaux_for_dashboard.json` dans la table `reseaux`.
-    - Ajouter les tables `regions` et `recommandations`.
-    - Créer les **vues** (`reseaux_avec_statut`, `reseaux_par_region`).
-    - Configurer les **RLS (Row Level Security)** en lecture seule (pas d'auth).
-  - [ ] **Calculer les champs manquants** :
-    - `lat`/`lng` pour les réseaux sans géométrie (centroïdes de région).
-    - `score_global` (via trigger Supabase ou calcul côté frontend).
-  - [ ] **Préparer les requêtes** :
-    - Endpoint pour lister les réseaux avec leur statut.
-    - Endpoint pour les détails d'un réseau.
-- **Dépendances** : Aucune (peut commencer en parallèle).
+> *⚠️ **OBSOLÈTE** : Supabase annulé, tout passe par JSON local. Cette section est gardée pour référence historique.
+
+- **Tâches initiales prévues (non nécessaires)** :
+  - [x] ~~Créer la base Supabase~~ → **Annulé : utilisation du JSON local**
+  - [x] ~~Importer les données~~ → **Annulé : données déjà dans `frontend/data/reseaux.json`**
+  - [x] ~~Créer les vues SQL~~ → **Annulé : calculs faits côté frontend**
+
+- **Tâches réelles (si besoin)** :
+  - [ ] Vérifier que `frontend/data/reseaux.json` est à jour avec `data_prep/final/reseaux_for_dashboard.json`
+  - [ ] S'assurer que les fonctions de calcul (`calculateNetworkStatus`, `calculateGlobalScore`) fonctionnent correctement
+
+- **Dépendances** : Aucune
 - **Livrables** :
-  - Script SQL pour créer les tables/vues (`/backend/sql/init.sql`)
-  - Fichier `.env` avec les clés Supabase
-  - Données importées dans Supabase
+  - Fichier `frontend/data/reseaux.json` validé et complet
+  - Vérification que tous les réseaux ont des coordonnées ou un fallback région valide
 - **Validation** :
-  - [ ] Base Supabase fonctionnelle et accessible.
-  - [ ] Données complètes et cohérentes.
-  - [ ] Vues et calculs vérifiés.
+  - [ ] Le fichier JSON est chargé sans erreur par le frontend
+  - [ ] Les calculs de statut et score sont corrects
+  - [ ] Toutes les données nécessaires sont présentes
 
 ---
 
@@ -504,10 +477,10 @@ function calculerScoreGlobal(reseau: Reseau): number {
   - [ ] Intégrer **Voxtral** pour générer les recommandations :
     - Option 1 : Appel API direct à Voxtral (si clé disponible).
     - Option 2 : **Mock** avec des recommandations pré-écrites (pour la démo).
-  - [ ] Stocker les recommandations en **cache** (Supabase ou localStorage).
+  - [ ] Stocker les recommandations en **cache** (localStorage).
 - **Dépendances** :
   - Builder 1 (pour l'intégration de la modale).
-  - Builder 2 (pour les données des réseaux).
+  - Fichier `frontend/data/reseaux.json` disponible.
 - **Livrables** :
   - Composant `/frontend/components/NetworkDetailsModal.tsx`
   - Fonction `/frontend/utils/voxtral.ts` (ou mock)
@@ -522,7 +495,7 @@ function calculerScoreGlobal(reseau: Reseau): number {
 > *Responsable : @[à assigner]*
 - **Tâches** :
   - [ ] Ajouter une **barre de recherche** en haut de l'écran.
-  - [ ] Implémenter le **filtre par région/département** (autocomplete avec les données de Builder 2).
+  - [ ] Implémenter le **filtre par région/département** (autocomplete avec les données de `frontend/data/reseaux.json`).
   - [ ] Implémenter le **filtre par statut** (Engie / Non-Engie / etc.).
   - [ ] Implémenter le **filtre par score** (slider min/max).
   - [ ] Implémenter la **recherche textuelle** (nom du réseau).
@@ -530,7 +503,7 @@ function calculerScoreGlobal(reseau: Reseau): number {
     - Exemple : `"Montre-moi les réseaux Engie en Île-de-France"` → Filtre : `statut=ENGIE AND region=Île-de-France`
     - Utiliser des **regex** pour extraire les mots-clés (région, statut, score).
 - **Dépendances** :
-  - Builder 2 (pour les données de recherche).
+  - Fichier `frontend/data/reseaux.json` disponible.
 - **Livrables** :
   - Composant `/frontend/components/SearchBar.tsx`
   - Fonction `/frontend/utils/nlpParser.ts`
@@ -546,17 +519,15 @@ function calculerScoreGlobal(reseau: Reseau): number {
 | Temps | Action | Responsable | Statut |
 |-------|--------|-------------|--------|
 | **0:00 - 0:05** | Briefing commun + validation des US | Tous | ⬜ |
-| **0:05 - 0:20** | Setup projets (Next.js, Supabase) | Tous | ⬜ |
-| **0:20 - 0:25** | **Checkpoint 1** : Projets initialisés ? Blocages ? | Tous | ⬜ |
-| **0:25 - 0:55** | **Sprint 1** :
+| **0:05 - 0:15** | Setup projets (Next.js + dépendances) | Tous | ⬜ |
+| **0:15 - 0:20** | **Checkpoint 1** : Projets initialisés ? Blocages ? | Tous | ⬜ |
+| **0:20 - 0:50** | **Sprint 1** :
 - Builder 1 : Carte de base + régions
-- Builder 2 : Base Supabase + import données
 - Builder 3 : Modale + affichage infos
 - Builder 4 : Barre de recherche + filtres | Builders | ⬜ |
-| **0:55 - 1:00** | **Checkpoint 2** : Statuts + synchronisation | Tous | ⬜ |
-| **1:00 - 1:25** | **Sprint 2** :
+| **0:50 - 0:55** | **Checkpoint 2** : Statuts + synchronisation | Tous | ⬜ |
+| **0:55 - 1:20** | **Sprint 2** :
 - Builder 1 : Zoom régional + couleurs
-- Builder 2 : Vues SQL + scoring
 - Builder 3 : Intégration Voxtral/mock
 - Builder 4 : Parser NLP | Builders | ⬜ |
 | **1:25 - 1:30** | **Checkpoint 3** : Validation finale + tests | Tous | ⬜ |
@@ -594,8 +565,8 @@ function calculerScoreGlobal(reseau: Reseau): number {
 
 ### 6.2 **Solutions de Contournement**
 - **Voxtral** : Clé API disponible → pas de mock nécessaire.
-- **Supabase lent** → Précharger les données en **JSON statique** pour la démo.
 - **Leaflet trop complexe** → Utiliser **Mapbox GL JS** (plus simple pour les débutants).
+- **Données manquantes** → Utiliser les centroïdes de région pour les réseaux sans coordonnées.
 
 ---
 
@@ -620,19 +591,22 @@ function calculerScoreGlobal(reseau: Reseau): number {
 │   │       ├── NetworkDetailsModal.tsx
 │   │       └── voxtral.ts (ou mock)
 │   ├── 📂 lib
-│   │   ├── supabaseClient.ts # Client Supabase
+│   │   ├── jsonLoader.ts    # Chargement des données JSON
 │   │   └── utils.ts          # Fonctions utilitaires (scoring, etc.)
+│   ├── 📂 data
+│   │   ├── reseaux.json     # Données des réseaux (source de vérité)
+│   │   └── regions.ts       # GeoJSON des régions
 │   ├── 📂 styles
 │   │   └── globals.css       # Tailwind + custom styles
-│   ├── 📄 .env.example
+│   ├── 📄 .env.example       # (Optionnel pour Voxtral API key)
 │   └── 📄 package.json
 │
-├── 📂 backend
+├── 📂 backend               # ⚠️ OBSOLÈTE - Supabase annulé
 │   ├── 📂 sql
-│   │   └── init.sql         # Script d'initialisation Supabase
-│   └── 📄 README.md         # Docs Supabase
+│   │   └── init.sql         # Script SQL de référence (non utilisé)
+│   └── 📄 README.md         # Docs historique
 │
-├── 📂 data
+├── 📂 data_prep             # Données brutes pour référence
 │   ├── 📄 reseaux.json      # Données importées (fallback)
 │   └── 📄 regions.geojson   # Géodonnées régions
 │
@@ -647,39 +621,25 @@ function calculerScoreGlobal(reseau: Reseau): number {
 
 ### 8.1 **Setup Initial**
 ```bash
-# Builder 1 & 3 & 4 (Frontend)
+# Tous les Builders (Frontend uniquement)
 npx create-next-app@latest frontend --typescript --tailwind --eslint --app --src-dir=false
 cd frontend
 npm install leaflet react-leaflet @types/leaflet
-npm install @supabase/supabase-js
-npm install axios  # Pour Voxtral
+npm install axios  # Pour Voxtral (optionnel)
 # Ajouter Inter (Fluid Design System Engie) dans _document.tsx ou layout.tsx
 # Voir section 2.5 pour le CSS Tailwind
-
-# Builder 2 (Backend)
-# 1. Créer un projet Supabase sur https://supabase.com
-# 2. Importer les données via l'interface SQL ou l'API
 ```
 
-### 8.2 **Supabase**
-- **Créer les tables** : Copier-coller le SQL de `/backend/sql/init.sql` dans l'interface Supabase.
-- **Importer les données** depuis `data_prep/final/reseaux_for_dashboard.json` :
-  ```sql
-  -- 1. Créer la table reseaux (voir init.sql)
-  -- 2. Importer via l'interface Supabase :
-  --    - Aller dans Table Editor > reseaux > Import
-  --    - Sélectionner reseaux_for_dashboard.json
-  --    - Mapper les colonnes automatiquement
-  -- 3. OU via SQL (si besoin de transformations) :
-  -- INSERT INTO reseaux (col1, col2, ...)
-  -- SELECT col1, col2, ... FROM json_to_recordset('[...]');
+### 8.2 **Chargement des Données JSON**
+- **Source principale** : `frontend/data/reseaux.json` (basé sur `data_prep/final/reseaux_for_dashboard.json`)
+- **Chargement** : Via `fetchNetworksFromJSON()` dans `frontend/lib/jsonLoader.ts`
+- **Conversion** : Les données brutes sont transformées en objets TypeScript typés
+- **Fallback coordonnées** : Utilisation des centroïdes de région pour les réseaux sans `lat`/`lng`
+- **Vérification** :
+  ```bash
+  # Vérifier que le fichier JSON est valide
+  node -e "const data = require('./frontend/data/reseaux.json'); console.log('Réseaux:', data.length);"
   ```
-- **Calculer les champs manquants** :
-  - `lat`/`lng` : Voir `regionCentroides` en section 8.5.
-  - `score_global` : Calculé côté frontend (fonction en section 2.6).
-- **Récupérer l'URL et la clé** :
-  - `SUPABASE_URL` = URL du projet (ex: `https://xxx.supabase.co`)
-  - `SUPABASE_ANON_KEY` = Clé publique (dans Settings > API)
 
 ### 8.3 **Voxtral**
 - **API Key** : **Disponible** (à générer et ajouter dans `.env`).
@@ -800,22 +760,22 @@ npm install axios  # Pour Voxtral
 
 ### ❓ Questions pour clarification :
 1. **Données géographiques** : Les coordonnées (`lat`/`lng`) sont-elles disponibles pour tous les réseaux ? Sinon, faut-il les calculer (centroïdes de communes) ?
-   → *Réponse : Utiliser les données de `reseaux_for_dashboard.json` (champ `_has_geometry`). Pour les autres, prendre le centroïde de la région.*
+   → *Réponse : Utiliser les données de `reseaux_for_dashboard.json` (champ `has_geometry`). Pour les autres, prendre le centroïde de la région via `getNetworkCoords()`.*
 2. **Voxtral** : A-t-on accès à l'API Voxtral pour la démo ? Sinon, faut-il un mock ?
    → *Réponse : Mock pour la démo (générer des recommandations basées sur le score).*
-3. **Supabase** : Faut-il une base dédiée ou peut-on utiliser un projet existant ?
-   → *Réponse : Créer un nouveau projet Supabase pour la démo.*
 
-### 💡 Décisions techniques à valider :
+### 💡 **Décisions techniques validées** :
 1. **Frontend** : Utiliser Next.js (App Router) pour le SSR et le déploiement facile sur Vercel. ✅
 2. **Carte** : Leaflet (léger) plutôt que Mapbox (plus simple mais payant). ✅
 3. **Scoring** : Calculer côté frontend (plus flexible pour la démo). ✅
 4. **Recommandations LLM** : Mock pour gagner du temps. ✅
+5. **Données** : **JSON local uniquement** - Supabase annulé pour simplifier la démo. ✅
 
 ### ⚠️ Risques identifiés :
 1. **Temps** : Le parsing NLP pourrait prendre plus de temps que prévu → *Solution : Limiter à 3-4 types de requêtes.*
-2. **Données** : Certains réseaux n'ont pas de coordonnées → *Solution : Filtrer ou utiliser des centroïdes.*
+2. **Données** : Certains réseaux n'ont pas de coordonnées → *Solution : Utiliser des centroïdes de région (déjà implémenté dans `getNetworkCoords()`).*
 3. **Voxtral** : Clé API disponible → pas de risque.
+4. **JSON local** : Fichier trop volumineux → *Solution : Minifier le JSON ou utiliser un sous-ensemble pour la démo.*
 
 ---
 
@@ -830,7 +790,7 @@ npm install axios  # Pour Voxtral
 ---
 
 ### ✏️ **Instructions pour les Builders** :
-1. **Lire ce document en entier** avant de commencer.
+1. **Lire ce document en entier** avant de commencer (surtout la partie **JSON local** et non Supabase).
 2. **Poser toutes les questions** pendant le briefing (0:00-0:05).
 3. **Respecter les dépendances** : ne pas commencer une tâche si sa dépendance n'est pas prête.
 4. **Commiter régulièrement** : 1 commit par US implémentée.
@@ -838,5 +798,7 @@ npm install axios  # Pour Voxtral
 6. **Communiquer les blocages** : Utiliser le channel dédié (ex: Discord #builderz07).
 
 ---
+
+> **⚠️ IMPORTANT : Supabase a été annulé. Tout fonctionne avec des données JSON locales. Pas besoin de backend !**
 
 *"1h30 pour un MVP qui impressionne : focus, exécution, pas de perfectionnisme."* 🚀
