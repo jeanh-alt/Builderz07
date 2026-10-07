@@ -32,6 +32,19 @@ const PopupNoSSR = dynamic(
   { ssr: false }
 );
 
+// MapContainer n'accepte pas onClick : on écoute le clic via useMapEvents
+const MapClickHandlerNoSSR = dynamic(
+  () =>
+    import('react-leaflet').then((mod) => {
+      const MapClickHandler = ({ onClick }: { onClick: () => void }) => {
+        mod.useMapEvents({ click: onClick });
+        return null;
+      };
+      return MapClickHandler;
+    }),
+  { ssr: false }
+);
+
 // Import the custom hook for Supabase data
 import { useNetworks } from '../hooks/useNetworks';
 import { Network, calculateNetworkStatus, calculateGlobalScore, statusToColor, statusToLabel } from '../types';
@@ -275,8 +288,9 @@ export default function Home() {
           style={{ height: '100%', width: '100%' }}
           minZoom={5}
           maxZoom={18}
-          onClick={handleMapClick}
         >
+          <MapClickHandlerNoSSR onClick={handleMapClick} />
+
           {/* Base Map Layer */}
           <TileLayerNoSSR
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

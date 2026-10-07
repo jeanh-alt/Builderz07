@@ -67,7 +67,10 @@ export const rowToNetwork = (row: ReseauRow): Network => ({
   taux_enr_r: row.taux_enr_r || 0,
   echeance: row.echeance || '',
   confiance: row.confiance || '',
-  titulaire_est_engie: row.titulaire_est_engie || 'Inconnu',
+  titulaire_est_engie:
+    row.titulaire_est_engie === 'ENGIE' || row.titulaire_est_engie === 'Concurrent'
+      ? row.titulaire_est_engie
+      : 'Inconnu',
   boamp_montant: row.boamp_montant || 0,
   score_echeance: row.score_echeance || 0,
   score_taille: row.score_taille || 0,
@@ -76,8 +79,8 @@ export const rowToNetwork = (row: ReseauRow): Network => ({
   ted_lien: row.ted_lien || '',
   ted_dernier_avis: row.ted_dernier_avis || '',
   has_geometry: row.has_geometry || false,
-  lat: row.lat || null,
-  lng: row.lng || null,
+  lat: row.lat ?? undefined,
+  lng: row.lng ?? undefined,
 });
 
 /**

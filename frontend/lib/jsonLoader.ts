@@ -106,10 +106,10 @@ export const rawToNetwork = (raw: RawReseau, index: number): Network => {
 export async function fetchNetworksFromJSON(): Promise<Network[]> {
   try {
     // Import dynamique du JSON (fonctionne côté client et serveur)
-    const data = await import('../data/reseaux.json');
+    const data = (await import('../data/reseaux.json')).default as unknown;
     
     // Vérifie que data est un tableau
-    const networksArray = Array.isArray(data) ? data : data.default || [];
+    const networksArray: RawReseau[] = Array.isArray(data) ? data : [];
     
     // Convertit chaque réseau
     return networksArray

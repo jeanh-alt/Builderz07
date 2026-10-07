@@ -51,6 +51,8 @@ export interface Region {
   nom: string;
   geojson: GeoJSON.Feature<GeoJSON.Polygon>;
   couleur: string;
+  centroide_lat?: number;
+  centroide_lng?: number;
 }
 
 // GeoJSON Type
